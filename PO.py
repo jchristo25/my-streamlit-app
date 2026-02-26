@@ -23,7 +23,8 @@ with st.sidebar:
 
     uploaded_file_2 = st.file_uploader("Upload File Excel BSM", type=['xlsx', 'xls'], key="file2")
 
-    uploaded_master = st.file_uploader("Upload Master Barang", type=['xlsx', 'xls'], key="master")
+    uploaded_con = st.file_uploader("Upload Master Consumable", type=['xlsx', 'xls'], key="master_con")
+    uploaded_noncon = st.file_uploader("Upload Master Non-Consumable", type=['xlsx', 'xls'], key="master_noncon")
     
     st.markdown("---")
     st.header("📅 Filter Periode")
@@ -131,35 +132,6 @@ def process_excel_file2(file):
         }
     except Exception as e:
         st.error(f"Error membaca file: {str(e)}")
-        return None
-    
-def process_master_barang(file):
-    try:
-        df = pd.read_excel(file)
-        # Standarisasi header agar mudah di-merge
-        df.columns = df.columns.str.strip().str.upper()
-        # Pastikan KODEBARANG jadi string agar cocok saat di-merge
-        df['KODEBARANG'] = df['KODEBARANG'].astype(str)
-
-        if 'SATUAN' in df.columns:
-                # A. Konversi ke String, Hapus Spasi (Strip), dan Huruf Besar (Upper)
-                # Ini menangani: " pcs", "PCS ", "Pcs", "pcS" -> "PCS"
-                df['SATUAN'] = df['SATUAN'].astype(str).str.strip().str.upper()
-                
-                # B. Daftar variasi yang ingin diubah menjadi 'PCS'
-                # Anda bisa menambahkan kata lain di list ini (misal: 'BH', 'BUAH', 'UNIT')
-                variasi_pcs = ['PC', 'BH', 'BUAH', 'UNIT', 'PS', 'PIECE', 'STUK', '" PCS"', ';PCS', '"PCS "', 'PCS.','PCS`', 'PCCCCCCS', ]
-                
-                # C. Lakukan penggantian massal
-                df['SATUAN'] = df['SATUAN'].replace(variasi_pcs, 'PCS')
-                
-                # Opsional: Jika ada typo aneh misal "PCS." (ada titik)
-                df['SATUAN'] = df['SATUAN'].str.replace('.', '', regex=False)
-
-        
-        return df[['KODEBARANG', 'NAMABARANG', 'NAMAKATEGORI', 'SATUAN']]
-    except Exception as e:
-        st.error(f"Error pada Master Barang: {e}") # Tambahkan ini agar tau jika error
         return None
 
 
@@ -762,121 +734,14 @@ def tampilkan_kpi_dashboard(po_raw, merged, sj_raw):
     with col4:
         st.metric(label="SJ Appr ➔ Close", value=f"{avg_proses_sj:.2f} Hari", 
                   help="Rata-rata waktu dari Surat Jalan di-approve hingga diclose")
-          
 
-# def analisis_top_barang_by_kategori(po_raw, path_consumable, path_nonconsumable, col_nama_barang='NAMA_BARANG'):
-
-#     st.markdown("---") 
-#     st.header("🏆 Top 5 Barang Terbanyak per Kategori")
-
-#     # 1. Cek apakah kolom nama barang ada di data transaksi
-#     if col_nama_barang not in po_raw.columns: 
-#         st.error(f"Error: Kolom '{col_nama_barang}' tidak ditemukan di data transaksi (po_raw).")
-#         return
-
-#     # 2. Load Data Master Excel dengan Error Handling
-#     try:
-#         df_master_con = pd.read_excel(path_consumable)
-#         df_master_noncon = pd.read_excel(path_nonconsumable)
-        
-#         # Validasi kolom di file master
-#         if col_nama_barang not in df_master_con.columns:
-#              st.error(f"Error: Kolom '{col_nama_barang}' tidak ditemukan di file {path_consumable}. Mohon samakan headernya.")
-#              return
-#         if col_nama_barang not in df_master_noncon.columns:
-#              st.error(f"Error: Kolom '{col_nama_barang}' tidak ditemukan di file {path_nonconsumable}. Mohon samakan headernya.")
-#              return
-
-#     except FileNotFoundError as e:
-#         st.error(f"Gagal membaca file master Excel. Pastikan file berada di lokasi yang benar. Error: {e}")
-#         return
-#     except Exception as e:
-#         st.error(f"Terjadi kesalahan saat membaca file Excel: {e}")
-#         return
-
-#     # --- PROSES DATA ---
-
-#     # 3. Beri label kategori pada masing-masing master
-#     df_master_con['Kategori_Master'] = 'Consumable'
-#     df_master_noncon['Kategori_Master'] = 'Non-Consumable'
-
-#     # 4. Gabungkan kedua master menjadi satu referensi
-#     # Kita hanya butuh kolom nama barang dan kategorinya
-#     master_combined = pd.concat([
-#         df_master_con[[col_nama_barang, 'Kategori_Master']],
-#         df_master_noncon[[col_nama_barang, 'Kategori_Master']]
-#     ], ignore_index=True)
-    
-#     # Hapus duplikat di master jika ada nama barang yang sama
-#     master_combined = master_combined.drop_duplicates(subset=[col_nama_barang])
-
-#     # 5. Hitung Frekuensi Barang di Data Transaksi (bp_raw)
-#     # Kita menghitung berapa kali nama barang muncul
-#     item_counts = po_raw[col_nama_barang].value_counts().reset_index()
-#     item_counts.columns = [col_nama_barang, 'Jumlah_Transaksi']
-
-#     # 6. Gabungkan (Merge) Data Transaksi dengan Master Kategori
-#     # Gunakan how='left' agar barang yang tidak ada di master tetap terhitung (sebagai Unclassified)
-#     merged_items = pd.merge(item_counts, master_combined, on=col_nama_barang, how='left')
-    
-#     # Isi kategori yang kosong (NaN) dengan 'Lainnya/Belum Terdaftar'
-#     merged_items['Kategori_Master'] = merged_items['Kategori_Master'].fillna('Lainnya/Belum Terdaftar')
-
-#     # --- VISUALISASI ---
-
-#     # Siapkan layout 2 kolom
-#     col1, col2 = st.columns(2)
-
-#     # --- CHART 1: CONSUMABLE ---
-#     with col1:
-#         st.subheader("Top 5 Consumable")
-#         # Filter kategori Consumable, ambil top 5
-#         top5_con = merged_items[merged_items['Kategori_Master'] == 'Consumable'].head(5)
-        
-#         if not top5_con.empty:
-#             fig_con = px.pie(
-#                 top5_con,
-#                 values='Jumlah_Transaksi',
-#                 names=col_nama_barang,
-#                 title='Berdasarkan Frekuensi Pembelian',
-#                 hole=0.4, # Membuat Donut Chart agar lebih modern
-#                 color_discrete_sequence=px.colors.sequential.Tealgrn # Pilihan warna
-#             )
-#             fig_con.update_traces(textposition='inside', textinfo='percent+label')
-#             st.plotly_chart(fig_con, use_container_width=True)
-#         else:
-#             st.info("Tidak ada data barang Consumable yang ditemukan.")
-
-#     # --- CHART 2: NON-CONSUMABLE ---
-#     with col2:
-#         st.subheader("Top 5 Non-Consumable")
-#         # Filter kategori Non-Consumable, ambil top 5
-#         top5_noncon = merged_items[merged_items['Kategori_Master'] == 'Non-Consumable'].head(5)
-        
-#         if not top5_noncon.empty:
-#             fig_noncon = px.pie(
-#                 top5_noncon,
-#                 values='Jumlah_Transaksi',
-#                 names=col_nama_barang,
-#                 title='Berdasarkan Frekuensi Pembelian',
-#                 hole=0.4, # Membuat Donut Chart
-#                 color_discrete_sequence=px.colors.sequential.Purples # Pilihan warna berbeda
-#             )
-#             fig_noncon.update_traces(textposition='inside', textinfo='percent+label')
-#             st.plotly_chart(fig_noncon, use_container_width=True)
-#         else:
-#             st.info("Tidak ada data barang Non-Consumable yang ditemukan.")
-
-#     # Opsional: Tampilkan data yang tidak masuk kategori manapun
-#     unclassified = merged_items[merged_items['Kategori_Master'] == 'Lainnya/Belum Terdaftar']
-#     if not unclassified.empty:
-#         with st.expander("⚠️ Lihat Barang yang Belum Masuk Master Kategori"):
-#             st.write("Barang-barang berikut ada di transaksi tapi tidak ditemukan di kedua file master Excel:")
-#             st.dataframe(unclassified.head(10)) # Tampilkan 10 saja agar tidak penuh
-def analisis_top_barang_by_kategori(po_raw, path_consumable, path_nonconsumable, col_nama_barang='NAMA_BARANG', col_qty='JML_DISETUJUI'):
+def analisis_top_barang_by_kategori(po_raw, file_consumable, file_nonconsumable, col_nama_barang='NAMA_BARANG', col_qty='JML_DISETUJUI'):
 
     st.markdown("---") 
     st.header("🏆 Top 5 Barang Terbanyak dipesan (Consumable & Non-Consumable)")
+    if file_consumable is None or file_nonconsumable is None:
+        st.warning("⚠️ Mohon upload file Master Consumable dan Non-Consumable di sidebar terlebih dahulu untuk melihat analisis ini.")
+        return
 
     # 1. Cek keberadaan kolom
     if col_nama_barang not in po_raw.columns:
@@ -889,15 +754,15 @@ def analisis_top_barang_by_kategori(po_raw, path_consumable, path_nonconsumable,
 
     # 2. Load Data Master
     try:
-        df_master_con = pd.read_excel(path_consumable)
-        df_master_noncon = pd.read_excel(path_nonconsumable)
+        df_master_con = pd.read_excel(file_consumable)
+        df_master_noncon = pd.read_excel(file_nonconsumable)
 
         if col_nama_barang not in df_master_con.columns:
-            st.error(f"Error: Kolom '{col_nama_barang}' tidak ditemukan di file {path_consumable}.")
+            st.error(f"Error: Kolom '{col_nama_barang}' tidak ditemukan di file {file_consumable}.")
             return
 
         if col_nama_barang not in df_master_noncon.columns: 
-            st.error(f"Error: Kolom '{col_nama_barang}' tidak ditemukan di file {path_nonconsumable}.")
+            st.error(f"Error: Kolom '{col_nama_barang}' tidak ditemukan di file {file_nonconsumable}.")
             return 
 
     except Exception as e:
@@ -935,58 +800,65 @@ def analisis_top_barang_by_kategori(po_raw, path_consumable, path_nonconsumable,
     merged_items["Kategori_Master"] = merged_items["Kategori_Master"].fillna("Lainnya/Belum Terdaftar")
 
     # 7. Visualisasi
-    col1, col2 = st.columns(2)
-
+    # 7. Visualisasi (Atas-Bawah & Diperbesar)
+    
     # ---- TOP 5 CONSUMABLE ----
-    with col1:
-        st.subheader("Top 5 Consumable (berdasarkan total PCS dipesan)")
+    st.subheader("🛠️ Top 5 Consumable (berdasarkan total PCS dipesan)")
 
-        top5_con = merged_items[merged_items["Kategori_Master"] == "Consumable"].head(5)
+    top5_con = merged_items[merged_items["Kategori_Master"] == "Consumable"].head(5)
 
-        if not top5_con.empty:
-            fig_con = px.pie(
-                top5_con,
-                values="Total_Dipesan",
-                names=col_nama_barang,
-                title="Top 5 Consumable",
-                hole=0.5,
-                color_discrete_sequence=px.colors.sequential.Tealgrn
-            )
-            fig_con.update_traces(textposition="inside", textinfo="percent+label")
-            st.plotly_chart(fig_con, use_container_width=True)
-        else:
-            st.info("Tidak ada barang Consumable ditemukan.")
+    if not top5_con.empty:
+        fig_con = px.pie(
+            top5_con,
+            values="Total_Dipesan",
+            names=col_nama_barang,
+            hole=0.4, # Sedikit diperkecil lubangnya agar area warna lebih luas
+            color_discrete_sequence=px.colors.qualitative.Pastel
+        )
+        fig_con.update_traces(textposition="inside", textinfo="percent+label", textfont_size=14)
+        
+        # Memperbesar ukuran chart secara spesifik (Tinggi 550 pixel)
+        fig_con.update_layout(
+            height=550, 
+            margin=dict(t=30, b=30, l=0, r=0),
+            legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5) # Pindah legenda ke bawah agar chart lebih lega
+        )
+        st.plotly_chart(fig_con, use_container_width=True)
+    else:
+        st.info("Tidak ada barang Consumable ditemukan.")
+
+    st.markdown("---") # Garis pembatas yang rapi
 
     # ---- TOP 5 NON-CONSUMABLE ----
-    with col2:
-        st.subheader("Top 5 Non-Consumable (berdasarkan total PCS dipesan)")
+    st.subheader("📦 Top 5 Non-Consumable (berdasarkan total PCS dipesan)")
 
-        top5_noncon = merged_items[merged_items["Kategori_Master"] == "Non-Consumable"].head(5)
+    top5_noncon = merged_items[merged_items["Kategori_Master"] == "Non-Consumable"].head(5)
 
-        if not top5_noncon.empty:
-            fig_noncon = px.pie(
-                top5_noncon,
-                values="Total_Dipesan",
-                names=col_nama_barang,
-                title="Top 5 Non-Consumable",
-                hole=0.5,
-                color_discrete_sequence=px.colors.sequential.Purples
-            )
-            fig_noncon.update_traces(textposition="inside", textinfo="percent+label")
-            st.plotly_chart(fig_noncon, use_container_width=True)
-        else:
-            st.info("Tidak ada barang Non-Consumable ditemukan.")
+    if not top5_noncon.empty:
+        fig_noncon = px.pie(
+            top5_noncon,
+            values="Total_Dipesan",
+            names=col_nama_barang,
+            hole=0.4,
+            color_discrete_sequence=px.colors.qualitative.Plotly
+        )
+        fig_noncon.update_traces(textposition="inside", textinfo="percent+label", textfont_size=14)
+        
+        # Memperbesar ukuran chart secara spesifik (Tinggi 550 pixel)
+        fig_noncon.update_layout(
+            height=550, 
+            margin=dict(t=30, b=30, l=0, r=0),
+            legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5) # Pindah legenda ke bawah
+        )
+        st.plotly_chart(fig_noncon, use_container_width=True)
+    else:
+        st.info("Tidak ada barang Non-Consumable ditemukan.")
 
-    # # 8. Barang yang tidak ditemukan di master
-    # unclassified = merged_items[merged_items["Kategori_Master"] == "Lainnya/Belum Terdaftar"]
-
-    # if not unclassified.empty:
-    #     with st.expander("⚠️ Barang yang belum masuk master kategori"):
-    #         st.write("Berikut barang-barang yang ada di transaksi namun belum masuk master:")
-    #         st.dataframe(unclassified.head(20))
-
-def top_10_barang_bsm_by_kategori(bsm_raw, path_consumable, path_nonconsumable):
+def top_10_barang_bsm_by_kategori(bsm_raw, file_consumable, file_nonconsumable):
     st.header("🏆 Top 10 Barang Terbanyak (Berdasarkan Approval)")
+    if file_consumable is None or file_nonconsumable is None:
+        st.warning("⚠️ Mohon upload file Master Consumable dan Non-Consumable di sidebar terlebih dahulu untuk melihat analisis ini.")
+        return
 
     # --- FITUR FILTER LOKASI ---
     if 'KODELOKASI' in bsm_raw.columns: 
@@ -1006,8 +878,8 @@ def top_10_barang_bsm_by_kategori(bsm_raw, path_consumable, path_nonconsumable):
 
     # --- LOAD MASTER BARANG ---
     try:
-        df_master_con = pd.read_excel(path_consumable)
-        df_master_noncon = pd.read_excel(path_nonconsumable)
+        df_master_con = pd.read_excel(file_consumable)
+        df_master_noncon = pd.read_excel(file_nonconsumable)
         
         # Di data master namanya 'NAMA_BARANG', di BSM namanya 'NAMABRG'
         col_master_nama = 'NAMA_BARANG'
@@ -1384,6 +1256,197 @@ def analisis_dead_stock(bp_raw, sj_raw):
         file_name='monitoring_dead_stock.csv',
         mime='text/csv'
     )   
+
+def tampilkan_trend_dokumen(po_raw, bp_raw, sj_raw, bsm_raw):
+    st.markdown("---")
+    st.header("📈 Tren Penerbitan Dokumen (PO, BP, SJ, BSM)")
+    
+    # 1. Widget Pilihan Periode
+    pilihan_waktu = st.selectbox(
+        "Pilih Periode Waktu:",
+        ["Harian", "Mingguan", "Bulanan"],
+        index=0 # Default ke Harian
+    )
+    
+    # Mapping pilihan ke format resample Pandas
+    # 'D' = Daily, 'W-MON' = Weekly (Mulai Senin), 'MS' = Month Start (Awal Bulan)
+    freq_map = {"Harian": "D", "Mingguan": "W-MON", "Bulanan": "MS"}
+    freq = freq_map[pilihan_waktu]
+    
+    # 2. Fungsi Bantuan untuk Menghitung Trend
+    def hitung_trend(df, date_col, doc_name):
+        if date_col not in df.columns:
+            return pd.DataFrame(columns=['Tanggal', 'Jumlah', 'Dokumen'])
+        
+        # Buat copy dan buang baris yang tanggalnya kosong (NaT)
+        df_temp = df.dropna(subset=[date_col]).copy()
+        
+        # Set kolom tanggal sebagai index
+        df_temp.set_index(date_col, inplace=True)
+        
+        # Lakukan resampling (pengelompokan berdasarkan waktu) dan hitung jumlah barisnya
+        trend = df_temp.resample(freq).size().reset_index()
+        trend.columns = ['Tanggal', 'Jumlah']
+        
+        # Jika mingguan/bulanan, pastikan hanya mengambil tanggal date-nya saja agar rapi di chart
+        trend['Tanggal'] = trend['Tanggal'].dt.date
+        trend['Dokumen'] = doc_name
+        return trend
+
+    # 3. Hitung Trend untuk Masing-Masing Dokumen
+    po_trend = hitung_trend(po_raw, 'PO_CREATED_ON', 'PO')
+    bp_trend = hitung_trend(bp_raw, 'BP_CREATED_ON', 'BP')
+    sj_trend = hitung_trend(sj_raw, 'SJ_CREATED_ON', 'SJ')
+    bsm_trend = hitung_trend(bsm_raw, 'BSM_CREATED_ON','BSM')
+    
+    # 4. Gabungkan Semua Dataframe Menjadi Satu
+    all_trends = pd.concat([po_trend, bp_trend, sj_trend, bsm_trend], ignore_index=True)
+    
+    # Buang baris yang jumlahnya 0 (opsional: agar grafik tidak menukik ke 0 di hari libur)
+    all_trends = all_trends[all_trends['Jumlah'] > 0]
+    
+    # Urutkan berdasarkan tanggal
+    all_trends = all_trends.sort_values(by='Tanggal')
+
+    # 5. Visualisasi dengan Plotly
+    if not all_trends.empty:
+        fig = px.line(
+            all_trends, 
+            x='Tanggal', 
+            y='Jumlah',
+            color='Dokumen', # Membedakan garis berdasarkan jenis dokumen
+            markers=True, # Menambahkan titik di setiap data
+            title=f'Trend Penerbitan Dokumen ({pilihan_waktu})'
+        )
+
+        # Mengatur tampilan agar rapi
+        fig.update_layout(
+            xaxis_title="Tanggal",
+            yaxis_title="Total Dokumen Diterbitkan",
+            hovermode="x unified", # Menampilkan tooltip gabungan saat kursor diarahkan ke satu titik X
+            legend_title="Jenis Dokumen"
+        )
+        
+        # Tampilkan grafik
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Tidak ada data tanggal yang valid untuk ditampilkan trend-nya.")
+
+def trend_per_nama_barang(po_raw, bp_raw, sj_raw, file_consumable, file_nonconsumable):
+    st.markdown("---")
+    st.header("🔍 Tren Pergerakan Spesifik per Barang")
+    
+    # 1. Pastikan file master sudah di-upload di sidebar
+    if file_consumable is None or file_nonconsumable is None:
+        st.warning("⚠️ Mohon upload file Master Consumable dan Non-Consumable di sidebar terlebih dahulu.")
+        return
+
+    # 2. Reset pointer file uploader & Load data master
+    try:
+        file_consumable.seek(0)
+        file_nonconsumable.seek(0)
+        df_con = pd.read_excel(file_consumable)
+        df_noncon = pd.read_excel(file_nonconsumable)
+    except Exception as e:
+        st.error(f"Gagal membaca file master: {e}")
+        return
+        
+    col_master = 'NAMA_BARANG'
+    
+    # 3. UI: Pilihan Kategori & Periode menggunakan kolom sejajar
+    col1, col2 = st.columns(2)
+    with col1:
+        kategori = st.radio("1. Pilih Kategori Master:", ["Consumable", "Non-Consumable"])
+    
+    with col2:
+        pilihan_waktu = st.selectbox("2. Pilih Periode Tren:", ["Harian", "Mingguan", "Bulanan"], index=2)
+        
+    # Ambil list nama barang berdasarkan kategori yang dipilih
+    if kategori == "Consumable" and col_master in df_con.columns:
+        list_barang = df_con[col_master].dropna().astype(str).unique().tolist()
+    elif kategori == "Non-Consumable" and col_master in df_noncon.columns:
+        list_barang = df_noncon[col_master].dropna().astype(str).unique().tolist()
+    else:
+        st.error(f"Kolom '{col_master}' tidak ditemukan di file master yang dipilih.")
+        return
+            
+    list_barang.sort()
+
+    # 4. Input Pencarian Barang (Autocomplete Selectbox)
+    barang_dicari = st.selectbox("3. Cari & Pilih Nama Barang:", options=["-- Pilih Barang --"] + list_barang)
+
+    if barang_dicari == "-- Pilih Barang --":
+        st.info("💡 Silakan ketik atau pilih nama barang di atas untuk melihat tren PO, BP, dan SJ-nya.")
+        return
+
+    # 5. Filter Data Transaksi berdasarkan barang yang dicari
+    # (Penyesuaian nama kolom dinamis karena kadang penamaan di Excel berbeda)
+    col_po = 'NAMA_BARANG' if 'NAMA_BARANG' in po_raw.columns else 'NAMABRG'
+    col_bp = 'NAMABRG' if 'NAMABRG' in bp_raw.columns else 'NAMA_BARANG'
+    
+    po_filtered = po_raw[po_raw[col_po].astype(str) == barang_dicari] if col_po in po_raw.columns else pd.DataFrame()
+    bp_filtered = bp_raw[bp_raw[col_bp].astype(str) == barang_dicari] if col_bp in bp_raw.columns else pd.DataFrame()
+    
+    # Penanganan khusus SJ (Jika SJ tidak punya nama barang, kita lacak lewat nomor PO-nya)
+    sj_filtered = pd.DataFrame()
+    if 'NAMABRG' in sj_raw.columns:
+        sj_filtered = sj_raw[sj_raw['NAMABRG'].astype(str) == barang_dicari]
+    elif 'NAMA_BARANG' in sj_raw.columns:
+        sj_filtered = sj_raw[sj_raw['NAMA_BARANG'].astype(str) == barang_dicari]
+    elif not po_filtered.empty:
+        list_po = po_filtered['PO_NO'].unique().tolist()
+        col_sj_po = 'NO_PO' if 'NO_PO' in sj_raw.columns else 'PO_NO'
+        if col_sj_po in sj_raw.columns:
+            sj_filtered = sj_raw[sj_raw[col_sj_po].isin(list_po)]
+
+    # 6. Peringatan jika barang tidak pernah ditransaksikan
+    if po_filtered.empty and bp_filtered.empty and sj_filtered.empty:
+        st.warning(f"⚠️ Barang **'{barang_dicari}'** tidak ada datanya (Belum pernah diproses di PO, BP, maupun SJ).")
+        return
+        
+    # 7. Fungsi Resampling & Kalkulasi Frekuensi
+    freq_map = {"Harian": "D", "Mingguan": "W-MON", "Bulanan": "MS"}
+    freq = freq_map[pilihan_waktu]
+
+    def hitung_trend(df, date_col, doc_name):
+        if df.empty or date_col not in df.columns:
+            return pd.DataFrame(columns=['Tanggal', 'Frekuensi', 'Dokumen'])
+        df_temp = df.dropna(subset=[date_col]).copy()
+        df_temp.set_index(date_col, inplace=True)
+        trend = df_temp.resample(freq).size().reset_index()
+        trend.columns = ['Tanggal', 'Frekuensi']
+        trend['Tanggal'] = trend['Tanggal'].dt.date
+        trend['Dokumen'] = doc_name
+        return trend
+
+    po_trend = hitung_trend(po_filtered, 'PO_CREATED_ON', 'PO (Terbit)')
+    bp_trend = hitung_trend(bp_filtered, 'BP_CREATED_ON', 'BP (Diterima)')
+    sj_trend = hitung_trend(sj_filtered, 'SJ_CREATED_ON', 'SJ (Didistribusikan)')
+
+    # Gabungkan semua data trend
+    all_trends = pd.concat([po_trend, bp_trend, sj_trend], ignore_index=True)
+    all_trends = all_trends[all_trends['Frekuensi'] > 0].sort_values(by='Tanggal')
+
+    # 8. Visualisasi
+    if not all_trends.empty:
+        st.success(f"✅ Menampilkan riwayat transaksi untuk: **{barang_dicari}**")
+        fig = px.line(
+            all_trends, 
+            x='Tanggal', 
+            y='Frekuensi',
+            color='Dokumen',
+            markers=True,
+            title=f'Tren Aktivitas Dokumen: {barang_dicari}',
+            color_discrete_map={'PO (Terbit)': '#636EFA', 'BP (Diterima)': '#00CC96', 'SJ (Didistribusikan)': '#EF553B'}
+        )
+        fig.update_layout(
+            xaxis_title="Tanggal",
+            yaxis_title="Frekuensi Transaksi",
+            hovermode="x unified"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning(f"Data tanggal tidak valid untuk '{barang_dicari}'.")
 #========================================================================
 #========================================================================
 #                           Main aplikasi
@@ -1403,8 +1466,8 @@ if uploaded_file is not None:
         bsm_raw = data2['BSM'].dropna()
         po_raw['durasi_proses'] = po_raw['PO_APPROVED_ON'] - po_raw['PO_CREATED_ON']
         kolom_pilihan = ['PO_NO', 'PO_CREATED_ON', 'PO_APPROVED_ON', 'durasi_proses']
-        file_consumable = 'D:/Intern Jan 2025 - Jun 2025/Work_Directory/Barang_Consumable.xlsx'
-        file_nonconsumable = 'D:/Intern Jan 2025 - Jun 2025/Work_Directory/Barang_NonConsumable.xlsx'
+        # file_consumable = 'D:/Intern Jan 2025 - Jun 2025/Work_Directory/Barang_Consumable.xlsx'
+        # file_nonconsumable = 'D:/Intern Jan 2025 - Jun 2025/Work_Directory/Barang_NonConsumable.xlsx'
         merged = pd.merge(po_raw, bp_raw, on="PO_NO", how="left")
                 
         outstanding_bp = merged[
@@ -1420,8 +1483,8 @@ if uploaded_file is not None:
             nama_kolom_barang = 'NAMA_BARANG'
             analisis_top_barang_by_kategori(
                 po_raw=po_raw,
-                path_consumable=file_consumable,
-                path_nonconsumable=file_nonconsumable,
+                file_consumable=uploaded_con,
+                file_nonconsumable=uploaded_noncon,
                 col_nama_barang=nama_kolom_barang
             )
 
@@ -1459,8 +1522,8 @@ if uploaded_file is not None:
         with tab4:  
             top_10_barang_bsm_by_kategori(
                 bsm_raw=bsm_raw, 
-                path_consumable=file_consumable, 
-                path_nonconsumable=file_nonconsumable
+                file_consumable=uploaded_con, 
+                file_nonconsumable=uploaded_noncon
             )
             #========================================================================   
             analisis_fulfillment_rate_bsm(bsm_raw=bsm_raw)
@@ -1472,42 +1535,12 @@ if uploaded_file is not None:
 
 
         with tab5:
-            
-            st.markdown("---")
-            # 1. Pastikan kolom tanggal hanya mengambil tanggalnya saja (tanpa jam)
-            po_trend = po_raw.copy()
-            po_trend['tanggal'] = po_trend['PO_CREATED_ON'].dt.date
-
-            # 2. Hitung jumlah PO per tanggal
-            # Kita hitung jumlah PO_NO yang unik setiap harinya
-            df_counts = po_trend.groupby('tanggal')['PO_NO'].nunique().reset_index()
-            df_counts.columns = ['Tanggal', 'Jumlah PO']
-
-            # 3. Urutkan berdasarkan tanggal agar garis tren tidak berantakan
-            df_counts = df_counts.sort_values('Tanggal')
-
-            # --- TAMPILKAN DI STREAMLIT ---
-
-            st.header("📈 Tren Harian PO Terbit")
-
-            # Membuat Grafik Garis menggunakan Plotly
-            fig = px.line(
-                df_counts, 
-                x='Tanggal', 
-                y='Jumlah PO',
-                title='Jumlah Purchase Order per Hari',
-                markers=True, # Memberi titik pada setiap data
-                line_shape='linear'
-            )
-
-            # Mengatur agar tampilan grafik lebih bagus
-            fig.update_layout(
-                xaxis_title="Tanggal",
-                yaxis_title="Total PO",
-                hovermode="x unified"
-            )
-
-            # Tampilkan di Streamlit
-            st.plotly_chart(fig, use_container_width=True)
-            
+            tampilkan_trend_dokumen(po_raw=po_raw, bp_raw=bp_raw, sj_raw=sj_raw, bsm_raw=bsm_raw)
             # ========================================================================
+            trend_per_nama_barang(
+                po_raw=po_raw, 
+                bp_raw=bp_raw, 
+                sj_raw=sj_raw, 
+                file_consumable=uploaded_con,     
+                file_nonconsumable=uploaded_noncon
+            )
